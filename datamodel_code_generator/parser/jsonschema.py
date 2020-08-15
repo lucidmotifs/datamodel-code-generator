@@ -99,7 +99,7 @@ class JsonSchemaObject(BaseModel):
     definitions: Optional[Dict[str, 'JsonSchemaObject']]
     required: List[str] = []
     ref: Optional[str] = Field(default=None, alias='$ref')
-    schema: Optional[str] = Field(default="http://json-schema.org/draft-07/schema#", alias="$schema")
+    schema_doc: Optional[str] = Field(default="http://json-schema.org/draft-07/schema#", alias="$schema")
     nullable: Optional[bool] = False
     x_enum_varnames: List[str] = Field(default=[], alias='x-enum-varnames')
     description: Optional[str]
