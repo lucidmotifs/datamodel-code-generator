@@ -177,3 +177,4 @@ fabric.properties
 .idea
 
 version.py
+.vscode/settings.json
