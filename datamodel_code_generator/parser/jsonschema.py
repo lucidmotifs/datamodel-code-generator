@@ -99,7 +99,6 @@ class JsonSchemaObject(BaseModel):
     definitions: Optional[Dict[str, 'JsonSchemaObject']]
     required: List[str] = []
     ref: Optional[str] = Field(default=None, alias='$ref')
-    schema_doc: Optional[str] = Field(default="http://json-schema.org/draft-07/schema#", alias="$schema")
     nullable: Optional[bool] = False
     x_enum_varnames: List[str] = Field(default=[], alias='x-enum-varnames')
     description: Optional[str]
@@ -597,6 +596,7 @@ class JsonSchemaParser(Parser):
                         # Remote Reference – $ref: 'document.json' Uses the whole document located on the same server and in
                         # the same location. TODO treat edge case
                         full_path = self.base_path / relative_path
+                        print(full_path)
                         if remote_object:  # pragma: no cover
                             ref_body = remote_object
                         else:
