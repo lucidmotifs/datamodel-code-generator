@@ -2,10 +2,6 @@
 #   filename:  api.yaml
 #   timestamp: 2019-07-26T00:00:00+00:00
 
-from __future__ import (
-    annotations,
-)
-
 from typing import (
     List,
     Optional,
@@ -21,21 +17,21 @@ from pydantic import (
 class Pet(BaseModel):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: Optional[str]
 
 
 class Pets(BaseModel):
-    __root__: List[Pet]
+    __root__: List["Pet"]
 
 
 class User(BaseModel):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: Optional[str]
 
 
 class Users(BaseModel):
-    __root__: List[User]
+    __root__: List["User"]
 
 
 class Id(BaseModel):
@@ -52,41 +48,43 @@ class Error(BaseModel):
 
 
 class Api(BaseModel):
-    apiKey: Optional[
+    api_key: Optional[
         str
     ] = Field(
         None,
+        alias="apiKey",
         description="To be used as a dataset parameter value",
     )
-    apiVersionNumber: Optional[
+    api_version_number: Optional[
         str
     ] = Field(
         None,
+        alias="apiVersionNumber",
         description="To be used as a version parameter value",
     )
-    apiUrl: Optional[
+    api_url: Optional[
         AnyUrl
     ] = Field(
         None,
+        alias="apiUrl",
         description="The URL describing the dataset's fields",
     )
-    apiDocumentationUrl: Optional[
+    api_documentation_url: Optional[
         AnyUrl
     ] = Field(
         None,
+        alias="apiDocumentationUrl",
         description="A URL to the API console for each API",
     )
 
 
 class Apis(BaseModel):
-    __root__: List[Api]
+    __root__: List["Api"]
 
 
 class Event(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str]
 
 
 class Result(BaseModel):
-    event: Optional[
-        Event
-    ] = None
+    event: Optional["Event"]

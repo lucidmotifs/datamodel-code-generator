@@ -1,12 +1,13 @@
 import json
 from pathlib import Path
-from typing import Dict
-from unittest.mock import Mock, call
+from typing import Dict, List, Optional
+from unittest.mock import Mock
 
 import pytest
 import yaml
 
 from datamodel_code_generator import DataModelField
+from datamodel_code_generator.imports import Import
 from datamodel_code_generator.model.pydantic import BaseModel, CustomRootType
 from datamodel_code_generator.parser.base import dump_templates
 from datamodel_code_generator.parser.jsonschema import (
@@ -14,6 +15,7 @@ from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     get_model_by_path,
 )
+from datamodel_code_generator.types import DataType
 
 DATA_PATH: Path = Path(__file__).parents[1] / 'data' / 'jsonschema'
 
@@ -260,24 +262,8 @@ def test_parse_any_root_object(source_obj, generated_classes):
     'source_obj,generated_classes',
     [
         (
-            {
-                "properties": {
-                    "item": {
-                        "properties": {
-                            "timeout": {
-                                "oneOf": [{"type": "string"}, {"type": "integer"}]
-                            }
-                        },
-                        "type": "object",
-                    }
-                }
-            },
-            """class Item(BaseModel):
-    timeout: Optional[Union[str, int]] = None
-
-
-class OnOfObject(BaseModel):
-    item: Optional[Item] = None""",
+            yaml.safe_load((DATA_PATH / 'oneof.json').read_text()),
+            (DATA_PATH / 'oneof.json.snapshot').read_text(),
         )
     ],
 )
@@ -345,13 +331,62 @@ def test_parse_nested_array():
     parser.parse()
     assert (
         dump_templates(list(parser.results))
-        == """\
-class BoundingBox(BaseModel):
-    type: str
-    coordinates: List[Union[float, str]]
-
-
-class Model(BaseModel):
-    bounding_box: Optional[BoundingBox] = None
-    attributes: Optional[Dict[str, Any]] = None"""
+        == (DATA_PATH / 'nested_array.json.snapshot').read_text()
     )
+
+
+@pytest.mark.parametrize(
+    'schema_type,schema_format,result_type,from_,import_',
+    [
+        ('integer', 'int32', 'int', None, None),
+        ('integer', 'int64', 'int', None, None),
+        ('number', 'float', 'float', None, None),
+        ('number', 'double', 'float', None, None),
+        ('number', 'time', 'time', None, None),
+        ('string', None, 'str', None, None),
+        ('string', 'byte', 'str', None, None),
+        ('string', 'binary', 'bytes', None, None),
+        ('boolean', None, 'bool', None, None),
+        ('string', 'date', 'date', 'datetime', 'date'),
+        ('string', 'date-time', 'datetime', 'datetime', 'datetime'),
+        ('string', 'password', 'SecretStr', 'pydantic', 'SecretStr'),
+        ('string', 'email', 'EmailStr', 'pydantic', 'EmailStr'),
+        ('string', 'uri', 'AnyUrl', 'pydantic', 'AnyUrl'),
+        ('string', 'uri-reference', 'str', None, None),
+        ('string', 'uuid', 'UUID', 'uuid', 'UUID'),
+        ('string', 'uuid1', 'UUID1', 'pydantic', 'UUID1'),
+        ('string', 'uuid2', 'UUID2', 'pydantic', 'UUID2'),
+        ('string', 'uuid3', 'UUID3', 'pydantic', 'UUID3'),
+        ('string', 'uuid4', 'UUID4', 'pydantic', 'UUID4'),
+        ('string', 'uuid5', 'UUID5', 'pydantic', 'UUID5'),
+        ('string', 'ipv4', 'IPv4Address', 'pydantic', 'IPv4Address'),
+        ('string', 'ipv6', 'IPv6Address', 'pydantic', 'IPv6Address'),
+    ],
+)
+def test_get_data_type(schema_type, schema_format, result_type, from_, import_):
+    if from_ and import_:
+        imports_: Optional[List[Import]] = [Import(from_=from_, import_=import_)]
+    else:
+        imports_ = None
+
+    parser = JsonSchemaParser(BaseModel, CustomRootType)
+    assert parser.get_data_type(
+        JsonSchemaObject(type=schema_type, format=schema_format)
+    ) == [DataType(type=result_type, imports_=imports_)]
+
+
+@pytest.mark.parametrize(
+    'schema_types,result_types',
+    [(['integer', 'number'], ['int', 'float']), (['integer', 'null'], ['int']),],
+)
+def test_get_data_type_array(schema_types, result_types):
+    parser = JsonSchemaParser(BaseModel, CustomRootType)
+    assert parser.get_data_type(JsonSchemaObject(type=schema_types)) == [
+        DataType(type=r) for r in result_types
+    ]
+
+
+def test_get_data_type_invalid_obj():
+    with pytest.raises(ValueError, match='invalid schema object'):
+        parser = JsonSchemaParser(BaseModel, CustomRootType)
+        assert parser.get_data_type(JsonSchemaObject())

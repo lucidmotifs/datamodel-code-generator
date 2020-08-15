@@ -1,14 +1,11 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import List, Optional
 
 import pytest
 
 from datamodel_code_generator import DataModelField, PythonVersion
-from datamodel_code_generator.imports import Import
-from datamodel_code_generator.model.base import TemplateBase
 from datamodel_code_generator.model.pydantic import BaseModel, CustomRootType
-from datamodel_code_generator.parser.base import DataType, dump_templates
+from datamodel_code_generator.parser.base import Reference, dump_templates
 from datamodel_code_generator.parser.jsonschema import JsonSchemaObject
 from datamodel_code_generator.parser.openapi import OpenAPIParser
 
@@ -36,82 +33,6 @@ def get_expected_file(
     file_name = '_'.join(params or 'output')
 
     return EXPECTED_OPEN_API_PATH / test_name / (prefix or '') / f'{file_name}.py'
-
-
-class A(TemplateBase):
-    def __init__(self, filename: str, data: str):
-        self._data = data
-        super().__init__(Path(filename))
-
-    def render(self) -> str:
-        return self._data
-
-
-@pytest.mark.parametrize(
-    'schema_type,schema_format,result_type,from_,import_',
-    [
-        ('integer', 'int32', 'int', None, None),
-        ('integer', 'int64', 'int', None, None),
-        ('number', 'float', 'float', None, None),
-        ('number', 'double', 'float', None, None),
-        ('number', 'time', 'time', None, None),
-        ('string', None, 'str', None, None),
-        ('string', 'byte', 'str', None, None),
-        ('string', 'binary', 'bytes', None, None),
-        ('boolean', None, 'bool', None, None),
-        ('string', 'date', 'date', 'datetime', 'date'),
-        ('string', 'date-time', 'datetime', 'datetime', 'datetime'),
-        ('string', 'password', 'SecretStr', 'pydantic', 'SecretStr'),
-        ('string', 'email', 'EmailStr', 'pydantic', 'EmailStr'),
-        ('string', 'uri', 'AnyUrl', 'pydantic', 'AnyUrl'),
-        ('string', 'uuid', 'UUID', 'uuid', 'UUID'),
-        ('string', 'uuid1', 'UUID1', 'pydantic', 'UUID1'),
-        ('string', 'uuid2', 'UUID2', 'pydantic', 'UUID2'),
-        ('string', 'uuid3', 'UUID3', 'pydantic', 'UUID3'),
-        ('string', 'uuid4', 'UUID4', 'pydantic', 'UUID4'),
-        ('string', 'uuid5', 'UUID5', 'pydantic', 'UUID5'),
-        ('string', 'ipv4', 'IPv4Address', 'pydantic', 'IPv4Address'),
-        ('string', 'ipv6', 'IPv6Address', 'pydantic', 'IPv6Address'),
-    ],
-)
-def test_get_data_type(schema_type, schema_format, result_type, from_, import_):
-    if from_ and import_:
-        imports_: Optional[List[Import]] = [Import(from_=from_, import_=import_)]
-    else:
-        imports_ = None
-
-    parser = OpenAPIParser(BaseModel, CustomRootType)
-    assert parser.get_data_type(
-        JsonSchemaObject(type=schema_type, format=schema_format)
-    ) == [DataType(type=result_type, imports_=imports_)]
-
-
-@pytest.mark.parametrize(
-    'schema_types,result_types',
-    [(['integer', 'number'], ['int', 'float']), (['integer', 'null'], ['int']),],
-)
-def test_get_data_type_array(schema_types, result_types):
-    parser = OpenAPIParser(BaseModel, CustomRootType)
-    assert parser.get_data_type(JsonSchemaObject(type=schema_types)) == [
-        DataType(type=r) for r in result_types
-    ]
-
-
-def test_get_data_type_invalid_obj():
-    with pytest.raises(ValueError, match='invalid schema object'):
-        parser = OpenAPIParser(BaseModel, CustomRootType)
-        assert parser.get_data_type(JsonSchemaObject())
-
-
-def test_dump_templates():
-    with NamedTemporaryFile('w') as dummy_template:
-        assert dump_templates(A(dummy_template.name, 'abc')) == 'abc'
-        assert (
-            dump_templates(
-                [A(dummy_template.name, 'abc'), A(dummy_template.name, 'def')]
-            )
-            == 'abc\n\n\ndef'
-        )
 
 
 @pytest.mark.parametrize(
@@ -527,3 +448,99 @@ def test_openapi_parser_parse_array_enum(with_import, format_, base_class):
         parser.parse(with_import=with_import, format_=format_)
         == expected_file.read_text()
     )
+
+
+@pytest.mark.parametrize(
+    'with_import, format_, base_class', [(True, True, None,),],
+)
+def test_openapi_parser_parse_remote_ref(with_import, format_, base_class):
+    parser = OpenAPIParser(
+        BaseModel,
+        CustomRootType,
+        base_class=base_class,
+        text=(DATA_PATH / 'refs.yaml').read_text(),
+    )
+    expected_file = get_expected_file(
+        'openapi_parser_parse_remote_ref', with_import, format_, base_class
+    )
+
+    assert (
+        parser.parse(with_import=with_import, format_=format_)
+        == expected_file.read_text()
+    )
+
+
+def test_openapi_model_resolver():
+    parser = OpenAPIParser(
+        BaseModel, CustomRootType, text=Path(DATA_PATH / 'api.yaml').read_text(),
+    )
+    parser.parse()
+
+    assert parser.model_resolver.references == {
+        '#/components/schemas/Error': Reference(
+            path=['#/components', 'schemas', 'Error'],
+            original_name='Error',
+            name='Error',
+            loaded=True,
+        ),
+        '#/components/schemas/Event': Reference(
+            path=['#/components', 'schemas', 'Event'],
+            original_name='Event',
+            name='Event',
+            loaded=True,
+        ),
+        '#/components/schemas/Id': Reference(
+            path=['#/components', 'schemas', 'Id'],
+            original_name='Id',
+            name='Id',
+            loaded=True,
+        ),
+        '#/components/schemas/Pet': Reference(
+            path=['#/components', 'schemas', 'Pet'],
+            original_name='Pet',
+            name='Pet',
+            loaded=True,
+        ),
+        '#/components/schemas/Pets': Reference(
+            path=['#/components', 'schemas', 'Pets'],
+            original_name='Pets',
+            name='Pets',
+            loaded=True,
+        ),
+        '#/components/schemas/Result': Reference(
+            path=['#/components', 'schemas', 'Result'],
+            original_name='Result',
+            name='Result',
+            loaded=True,
+        ),
+        '#/components/schemas/Rules': Reference(
+            path=['#/components', 'schemas', 'Rules'],
+            original_name='Rules',
+            name='Rules',
+            loaded=True,
+        ),
+        '#/components/schemas/Users': Reference(
+            path=['#/components', 'schemas', 'Users'],
+            original_name='Users',
+            name='Users',
+            loaded=True,
+        ),
+        '#/components/schemas/Users/Users': Reference(
+            path=['#/components', 'schemas', 'Users', 'Users'],
+            original_name='Users',
+            name='User',
+            loaded=True,
+        ),
+        '#/components/schemas/apis': Reference(
+            path=['#/components', 'schemas', 'apis'],
+            original_name='apis',
+            name='Apis',
+            loaded=True,
+        ),
+        '#/components/schemas/apis/Apis': Reference(
+            path=['#/components', 'schemas', 'apis', 'Apis'],
+            original_name='Apis',
+            name='Api',
+            loaded=True,
+        ),
+    }

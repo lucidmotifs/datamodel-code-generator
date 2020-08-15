@@ -14,6 +14,7 @@ from typing import (
     Union,
 )
 
+import yaml
 from pydantic import BaseModel, Field, validator
 
 from datamodel_code_generator import snooper_to_methods
@@ -58,6 +59,7 @@ json_schema_data_formats: Dict[str, Dict[str, Types]] = {
         'uuid4': Types.uuid4,
         'uuid5': Types.uuid5,
         'uri': Types.uri,
+        'uri-reference': Types.string,
         'hostname': Types.hostname,
         'ipv4': Types.ipv4,
         'ipv6': Types.ipv6,
@@ -135,7 +137,7 @@ class JsonSchemaParser(Parser):
         data_model_root_type: Type[DataModel],
         data_model_field_type: Type[DataModelFieldBase] = DataModelFieldBase,
         base_class: Optional[str] = None,
-        custom_template_dir: Optional[str] = None,
+        custom_template_dir: Optional[Path] = None,
         extra_template_data: Optional[DefaultDict[str, Dict[str, Any]]] = None,
         target_python_version: PythonVersion = PythonVersion.PY_37,
         text: Optional[str] = None,
@@ -143,6 +145,8 @@ class JsonSchemaParser(Parser):
         dump_resolve_reference_action: Optional[Callable[[List[str]], str]] = None,
         validation: bool = False,
         field_constraints: bool = False,
+        snake_case_field: bool = False,
+        strip_default_none: bool = False,
         aliases: Optional[Mapping[str, str]] = None,
     ):
         super().__init__(
@@ -158,6 +162,8 @@ class JsonSchemaParser(Parser):
             dump_resolve_reference_action,
             validation,
             field_constraints,
+            snake_case_field,
+            strip_default_none,
             aliases,
         )
 
@@ -566,8 +572,6 @@ class JsonSchemaParser(Parser):
                     # Local Reference – $ref: '#/definitions/myElement'
                     pass
                 else:
-                    import yaml
-
                     relative_path, object_path = obj.ref.split('#/')
                     remote_object: Optional[
                         Dict[str, Any]
@@ -639,7 +643,7 @@ class JsonSchemaParser(Parser):
         self.parse_ref(obj, path)
 
     def parse_raw(self) -> None:
-        raw_obj: Dict[Any, Any] = json.loads(self.text)  # type: ignore
+        raw_obj: Dict[Any, Any] = yaml.safe_load(self.text)  # type: ignore
         obj_name = raw_obj.get('title', 'Model')
         obj_name = self.model_resolver.add([], obj_name, unique=False).name
         self.parse_raw_obj(obj_name, raw_obj, [])

@@ -74,14 +74,6 @@ def snooper_to_methods(  # type: ignore
     return inner
 
 
-def load_json_or_yaml(text: str) -> Dict[Any, Any]:
-    try:
-        data = json.loads(text)
-    except JSONDecodeError:
-        data = yaml.safe_load(text)
-    return data
-
-
 @contextlib.contextmanager
 def chdir(path: Optional[Path]) -> Iterator[None]:
     """Changes working directory and returns to previous on exit."""
@@ -98,7 +90,7 @@ def chdir(path: Optional[Path]) -> Iterator[None]:
 
 
 def is_openapi(text: str) -> bool:
-    return 'openapi' in load_json_or_yaml(text)
+    return 'openapi' in yaml.safe_load(text)
 
 
 class InputFileType(Enum):
@@ -124,10 +116,12 @@ def generate(
     output: Optional[Path],
     target_python_version: PythonVersion,
     base_class: str = DEFAULT_BASE_CLASS,
-    custom_template_dir: Optional[str] = None,
+    custom_template_dir: Optional[Path] = None,
     extra_template_data: Optional[DefaultDict[str, Dict[str, Any]]] = None,
     validation: bool = False,
     field_constraints: bool = False,
+    snake_case_field: bool = False,
+    strip_default_none: bool = False,
     aliases: Optional[Mapping[str, str]] = None,
 ) -> None:
     if input_file_type == InputFileType.Auto:
@@ -177,6 +171,8 @@ def generate(
         dump_resolve_reference_action=dump_resolve_reference_action,
         validation=validation,
         field_constraints=field_constraints,
+        snake_case_field=snake_case_field,
+        strip_default_none=strip_default_none,
         aliases=aliases,
     )
 
