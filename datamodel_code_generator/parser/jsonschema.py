@@ -62,6 +62,11 @@ json_schema_data_formats: Dict[str, Dict[str, Types]] = {
         'ipv4': Types.ipv4,
         'ipv6': Types.ipv6,
         'decimal': Types.decimal,
+        'int64': Types.int64,
+        'int32': Types.int32,
+        'uint64': Types.int64,
+        'google-fieldmask': Types.string,
+        'google-duration': Types.string,
     },
     'boolean': {'default': Types.boolean},
     'object': {'default': Types.object},
@@ -89,6 +94,7 @@ class JsonSchemaObject(BaseModel):
     enum: List[str] = []
     writeOnly: Optional[bool]
     properties: Optional[Dict[str, 'JsonSchemaObject']]
+    definitions: Optional[Dict[str, 'JsonSchemaObject']]
     required: List[str] = []
     ref: Optional[str] = Field(default=None, alias='$ref')
     nullable: Optional[bool] = False
