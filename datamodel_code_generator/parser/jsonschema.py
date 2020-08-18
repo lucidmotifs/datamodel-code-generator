@@ -572,7 +572,9 @@ class JsonSchemaParser(Parser):
                     # Local Reference – $ref: '#/definitions/myElement'
                     pass
                 else:
-                    relative_path, object_path = obj.ref.split('#/')
+                    paths = obj.ref.split('#/', 1)
+                    relative_path = paths[0]
+                    object_path = '/' if len(paths) == 1 else paths[1]
                     remote_object: Optional[
                         Dict[str, Any]
                     ] = self.remote_object_cache.get(relative_path)
@@ -604,7 +606,7 @@ class JsonSchemaParser(Parser):
                             with full_path.open() as f:
                                 ref_body = yaml.safe_load(f)
                             self.remote_object_cache[relative_path] = ref_body
-                    object_paths = object_path.split('/')
+                    object_paths = list(filter(None, object_path.split('/')))
                     models = get_model_by_path(ref_body, object_paths)
                     self.parse_raw_obj(
                         object_paths[-1], models, [str(full_path), '#', *object_paths],
