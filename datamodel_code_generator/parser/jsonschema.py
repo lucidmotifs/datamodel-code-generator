@@ -606,8 +606,8 @@ class JsonSchemaParser(Parser):
                             with full_path.open() as f:
                                 ref_body = yaml.safe_load(f)
                             self.remote_object_cache[relative_path] = ref_body
-                    object_paths = list(filter(None, object_path.split('/')))
-                    models = get_model_by_path(ref_body, object_paths)
+                    object_paths = object_path.split('/')
+                    models = get_model_by_path(ref_body, list(filter(None, object_paths)))
                     self.parse_raw_obj(
                         object_paths[-1], models, [str(full_path), '#', *object_paths],
                     )
